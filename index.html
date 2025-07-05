@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solarized - Balcony Solar Analysis</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Google Maps Container -->
+      <div id="map" class="map-container"></div>
+      
+      <!-- Form Widget -->
+      <div id="form-widget" class="form-widget">
+        <div class="widget-header">
+          <h2>Balcony Solar Analysis</h2>
+          <button id="minimize-btn" class="minimize-btn" aria-label="Minimize widget">−</button>
+        </div>
+        
+        <div class="widget-content">
+          <div class="step" id="step-1">
+            <h3>Step 1: Select Building Location</h3>
+            <p>Search for an address below or click on the map to select a building for balcony solar analysis:</p>
+            
+            <div class="search-container">
+              <input 
+                type="text" 
+                id="address-search" 
+                placeholder="Search for an address..."
+                class="search-input"
+                autocomplete="off"
+              />
+              <button id="search-btn" class="search-btn" title="Manual search">🔍</button>
+            </div>
+            
+            <p class="search-hint">💡 Start typing to see address suggestions, or click on the map to select a location</p>
+            
+            <div id="selected-location" class="location-info hidden">
+              <p><strong>Selected Location:</strong></p>
+              <p id="location-coords"></p>
+              <p id="location-address"></p>
+            </div>
+            
+            <button id="next-step-1" class="btn btn-primary hidden">Analyze Solar Data</button>
+          </div>
+          
+          <div class="step hidden" id="step-2">
+            <h3>Step 2: Draw Panel Mounting Line</h3>
+            <p>Click two points on the map to draw a line where you want to mount your solar panels.</p>
+            
+            <div class="panel-line-info">
+              <p>📏 <strong>Click first point</strong> to start drawing the mounting line</p>
+              <p id="line-drawing-status" class="status-message"></p>
+              <div id="panel-line-locations-status">
+                <p>Panel line drawn: <span id="panel-line-status">No</span></p>
+                <div id="panel-line-details" class="hidden">
+                  <p>Line length: <span id="line-length">-</span></p>
+                  <p>Panel count: <span id="panel-count">-</span></p>
+                  <p>Total wattage: <span id="total-wattage">-</span></p>
+                  <p>Panel orientation: <span id="panel-orientation">-</span></p>
+                  <p>Total area: <span id="panel-area">-</span></p>
+                  <p id="constraint-info" class="constraint-info"></p>
+                </div>
+              </div>
+              <p class="hint">💡 Panels will be mounted perpendicular to your line on the selected side</p>
+            </div>
+            
+            <div class="action-buttons">
+              <button id="next-step-2" class="btn btn-primary" disabled>Configure Panel Parameters</button>
+              <button id="clear-panel-line" class="btn btn-secondary hidden">Clear Line</button>
+              <button id="back-step-1" class="btn btn-secondary">Back</button>
+            </div>
+          </div>
+          
+          <div class="step hidden" id="step-3">
+            <h3>Step 3: Configure Your Solar Panel Installation</h3>
+            <div class="panel-config-info">
+              <p><strong>Configure your solar panel installation:</strong></p>
+              <p>Adjust the mounting type and dimensions to match your setup.</p>
+            </div>
+            
+            <div class="global-parameters">
+              <h4>Panel Configuration</h4>
+              
+              <div class="control-group">
+                <label for="panel-length">Individual Panel Length:</label>
+                <div class="slider-container">
+                  <input type="range" id="panel-length" min="1.0" max="2.5" step="0.1" value="2.0" class="slider">
+                  <span id="panel-length-value">2.0m</span>
+                </div>
+                <p class="control-hint">Length of a single solar panel</p>
+              </div>
+              
+              <div class="control-group">
+                <label for="panel-width">Individual Panel Width:</label>
+                <div class="slider-container">
+                  <input type="range" id="panel-width" min="0.8" max="1.5" step="0.1" value="1.0" class="slider">
+                  <span id="panel-width-value">1.0m</span>
+                </div>
+                <p class="control-hint">Width of a single solar panel</p>
+              </div>
+              
+              <div class="control-group">
+                <label for="panel-wattage">Panel Wattage:</label>
+                <div class="input-container">
+                  <input type="text" id="panel-wattage" value="400" class="form-input wattage-input" placeholder="Enter wattage">
+                  <span class="input-unit">W</span>
+                </div>
+                <p class="control-hint">Maximum power output per individual panel (e.g., 300, 400, 450)</p>
+              </div>
+              
+              <div class="control-group">
+                <label for="panel-tilt">Panel Tilt Angle:</label>
+                <div class="slider-container">
+                  <input type="range" id="panel-tilt" min="0" max="90" step="5" value="90" class="slider">
+                  <span id="panel-tilt-value">90° (Vertical)</span>
+                </div>
+                <p class="control-hint">Angle of panel mounting: 90° = Vertical (balcony railing), 0° = Horizontal</p>
+              </div>
+              
+              <div class="control-group">
+                <label for="panel-orientation">Panel Orientation Along Line:</label>
+                <select id="panel-orientation" class="form-select">
+                  <option value="length">Length-wise (panels run along the line)</option>
+                  <option value="width">Width-wise (panels run perpendicular to line)</option>
+                </select>
+                <p class="control-hint">How panels are oriented relative to the mounting line</p>
+              </div>
+              
+              <div class="control-group">
+                <label for="panel-side">Panel Side:</label>
+                <select id="panel-side" class="form-select">
+                  <option value="left">Left side of line</option>
+                  <option value="right">Right side of line</option>
+                </select>
+                <p class="control-hint">Which side of the mounting line the panels face</p>
+              </div>
+              
+              <div class="system-constraints">
+                <h5>⚡ System Constraints</h5>
+                <p class="constraint-info">Maximum system power: <strong>2000W</strong> (with 200W leeway)</p>
+                <p class="constraint-info" id="constraint-info"></p>
+              </div>
+            </div>
+            
+            <div class="summary-section">
+              <h4>📊 Summary</h4>
+              <div id="balcony-summary">
+                <p>Panel area: <span id="panel-area">0 m²</span></p>
+                <p>Orientation: <span id="panel-orientation">-</span></p>
+                <p>Mounting: <span id="mounting-type">Railing Mount</span></p>
+              </div>
+            </div>
+            
+            <div class="action-buttons">
+              <button id="calculate-solar" class="btn btn-primary" disabled>Calculate Solar Potential</button>
+              <button id="back-step-2" class="btn btn-secondary">Back</button>
+            </div>
+          </div>
+          
+          <div class="step hidden" id="step-4">
+            <h3>Step 4: Balcony Solar Results</h3>
+            <div id="solar-results" class="results-container">
+              <div class="loading hidden" id="loading">
+                <div class="loader"></div>
+                <p>Analyzing balcony solar potential...</p>
+              </div>
+              
+              <div id="results-content" class="hidden">
+                <div class="result-item">
+                  <h4>🔋 Annual Energy Production</h4>
+                  <p id="annual-energy">--</p>
+                </div>
+                <div class="result-item">
+                  <h4>☀️ Panel System</h4>
+                  <p id="panel-potential">--</p>
+                </div>
+                <div class="result-item">
+                  <h4>💰 Annual Savings</h4>
+                  <p id="annual-savings">--</p>
+                </div>
+                <div class="result-item">
+                  <h4>🌱 CO₂ Reduction</h4>
+                  <p id="co2-savings">--</p>
+                </div>
+                <div class="result-item">
+                  <h4>⚡ System Information</h4>
+                  <p id="system-constraint-info">--</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="action-buttons">
+              <button id="new-analysis" class="btn btn-primary">New Analysis</button>
+              <button id="export-data" class="btn btn-secondary">Export Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Map Controls -->
+      <div class="map-controls">
+        <button id="toggle-satellite" class="control-btn">Satellite</button>
+        <button id="toggle-terrain" class="control-btn">Terrain</button>
+        <button id="theme-toggle" class="control-btn theme-toggle" aria-label="Toggle dark mode">
+          <span class="theme-icon">🌙</span>
+        </button>
+      </div>
+    </div>
+    
+    <script type="module" src="/src/main.js"></script>
+    <!-- Google Maps API will be loaded dynamically -->
+  </body>
+</html>
