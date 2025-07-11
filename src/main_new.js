@@ -48,11 +48,7 @@ class SolarMapApp {
       this.initializeServices();
       this.initializeControllers();
       this.setupEventListeners();
-      
-      // Only call showStep if uiController was successfully initialized
-      if (this.uiController) {
-        this.uiController.showStep(1);
-      }
+      this.uiController.showStep(1);
     } catch (error) {
       console.error('Failed to initialize app:', error);
       this.showError('Failed to load Google Maps. Please check your API key and internet connection.');
@@ -66,17 +62,12 @@ class SolarMapApp {
         return;
       }
 
-      // Set up the callback function globally
-      window.initMap = () => {
-        resolve();
-        delete window.initMap; // Clean up
-      };
-
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&libraries=places,geometry,visualization,marker&v=beta&callback=initMap&loading=async`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&libraries=places,geometry,visualization`;
       script.async = true;
       script.defer = true;
       
+      script.onload = () => resolve();
       script.onerror = () => reject(new Error('Failed to load Google Maps API'));
       
       document.head.appendChild(script);
@@ -87,7 +78,7 @@ class SolarMapApp {
     const mapOptions = {
       center: CONFIG.DEFAULT_CENTER,
       zoom: CONFIG.DEFAULT_ZOOM,
-      mapTypeId: google.maps.MapTypeId.SATELLITE, // Pure satellite view
+      mapTypeId: google.maps.MapTypeId.HYBRID,
       // Remove Google Maps default controls
       disableDefaultUI: true,
       zoomControl: false,
@@ -96,17 +87,13 @@ class SolarMapApp {
       streetViewControl: false,
       rotateControl: false,
       fullscreenControl: false,
-      mapId: 'solarized-map', // Required for AdvancedMarkerElement
-      // Force satellite view settings
-      tilt: 0, // Ensure top-down view (no 45° imagery)
-      heading: 0, // North-up orientation
-      restriction: {
-        strictBounds: false,
-      },
-      // Satellite specific options
-      mapTypeControlOptions: {
-        mapTypeIds: [google.maps.MapTypeId.SATELLITE]
-      }
+      styles: [
+        {
+          featureType: 'poi',
+          elementType: 'labels',
+          stylers: [{ visibility: 'off' }]
+        }
+      ]
     };
 
     this.map = new google.maps.Map(document.getElementById('map'), mapOptions);
@@ -123,11 +110,6 @@ class SolarMapApp {
     this.panelController = new PanelController(this.map, this);
     this.solarCalculator = new SolarCalculator(this.solarAPI);
     this.uiController = new UIController(this);
-    
-    // Ensure satellite view is enforced from the start
-    if (this.mapController) {
-      this.mapController.enforceSatelliteTopDown();
-    }
   }
 
   setupEventListeners() {
@@ -162,13 +144,7 @@ class SolarMapApp {
   }
 
   showError(message) {
-    if (this.uiController) {
-      this.uiController.showError(message);
-    } else {
-      // Fallback if uiController is not initialized
-      console.error('UI Error:', message);
-      alert(message); // Simple fallback
-    }
+    this.uiController.showError(message);
   }
 }
 

@@ -169,25 +169,151 @@
               </div>
               
               <div id="results-content" class="hidden">
-                <div class="result-item">
-                  <h4>🔋 Annual Energy Production</h4>
-                  <p id="annual-energy">--</p>
+                <!-- View Toggle -->
+                <div class="view-toggle">
+                  <button id="standard-view-btn" class="toggle-btn active">Standard View</button>
+                  <button id="nerds-view-btn" class="toggle-btn">Stats for Nerds</button>
                 </div>
-                <div class="result-item">
-                  <h4>☀️ Panel System</h4>
-                  <p id="panel-potential">--</p>
+                
+                <!-- Standard View (Simple) -->
+                <div id="standard-view" class="results-view">
+                  <div class="result-item large">
+                    <h4>⚡ Annual Energy Production</h4>
+                    <p id="standard-annual-energy" class="big-number">--</p>
+                    <small>Expected energy output per year</small>
+                  </div>
+                  <div class="result-item large">
+                    <h4>💰 Annual Cost Savings</h4>
+                    <p id="standard-annual-savings" class="big-number">--</p>
+                    <small>Money saved on electricity bills</small>
+                  </div>
                 </div>
-                <div class="result-item">
-                  <h4>💰 Annual Savings</h4>
-                  <p id="annual-savings">--</p>
-                </div>
-                <div class="result-item">
-                  <h4>🌱 CO₂ Reduction</h4>
-                  <p id="co2-savings">--</p>
-                </div>
-                <div class="result-item">
-                  <h4>⚡ System Information</h4>
-                  <p id="system-constraint-info">--</p>
+                
+                <!-- Stats for Nerds View (Detailed) -->
+                <div id="nerds-view" class="results-view hidden">
+                  <div class="stats-section">
+                    <h4>📊 Energy Production</h4>
+                    <div class="stats-grid">
+                      <div class="stat-item">
+                        <label>Annual Energy</label>
+                        <span id="nerds-annual-energy">--</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>Daily Average</label>
+                        <span id="nerds-daily-energy">--</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>Peak Sun Hours</label>
+                        <span id="nerds-peak-sun-hours">--</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="stats-section">
+                    <h4>🔧 System Configuration</h4>
+                    <div class="stats-grid">
+                      <div class="stat-item">
+                        <label>Panel Count</label>
+                        <span id="nerds-panel-count">--</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>Total DC Power</label>
+                        <span id="nerds-dc-power">--</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>Panel Area</label>
+                        <span id="nerds-panel-area">--</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>Panel Orientation</label>
+                        <span id="nerds-panel-azimuth">--</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>Panel Tilt</label>
+                        <span id="nerds-panel-tilt">--</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>System Efficiency</label>
+                        <span id="nerds-system-efficiency">--</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="stats-section">
+                    <h4>💰 Economics</h4>
+                    <div class="economics-config">
+                      <div class="config-item">
+                        <label for="electricity-price">Electricity Price (€/kWh)</label>
+                        <input type="number" id="electricity-price" min="0" max="1" step="0.01" value="0.32" />
+                      </div>
+                    </div>
+                    <div class="stats-grid">
+                      <div class="stat-item">
+                        <label>Annual Savings</label>
+                        <span id="nerds-annual-savings">--</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>20-Year Savings</label>
+                        <span id="nerds-lifetime-savings">--</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>CO₂ Reduction</label>
+                        <span id="nerds-co2-reduction">--</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="stats-section">
+                    <h4>📅 Seasonal Analysis</h4>
+                    <div class="seasonal-grid">
+                      <div class="seasonal-item">
+                        <label>Winter (Dec)</label>
+                        <div class="seasonal-values">
+                          <span id="nerds-winter-daily">--</span>
+                          <small id="nerds-winter-monthly">--</small>
+                        </div>
+                      </div>
+                      <div class="seasonal-item">
+                        <label>Spring (Mar)</label>
+                        <div class="seasonal-values">
+                          <span id="nerds-spring-daily">--</span>
+                          <small id="nerds-spring-monthly">--</small>
+                        </div>
+                      </div>
+                      <div class="seasonal-item">
+                        <label>Summer (Jun)</label>
+                        <div class="seasonal-values">
+                          <span id="nerds-summer-daily">--</span>
+                          <small id="nerds-summer-monthly">--</small>
+                        </div>
+                      </div>
+                      <div class="seasonal-item">
+                        <label>Fall (Sep)</label>
+                        <div class="seasonal-values">
+                          <span id="nerds-fall-daily">--</span>
+                          <small id="nerds-fall-monthly">--</small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="stats-section">
+                    <h4>🇩🇪 German Compliance</h4>
+                    <div class="stats-grid">
+                      <div class="stat-item">
+                        <label>Max DC Limit</label>
+                        <span id="nerds-dc-limit">2000W</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>Max AC Output</label>
+                        <span id="nerds-ac-limit">800W</span>
+                      </div>
+                      <div class="stat-item">
+                        <label>Compliance Status</label>
+                        <span id="nerds-compliance-status">--</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -415,4 +415,83 @@ export class SolarAPIService {
       isMockData: solarData.isMockData || false
     };
   }
+
+  /**
+   * Get solar data for a specific location (used by solarCalculator)
+   * @param {number} lat - Latitude
+   * @param {number} lng - Longitude
+   * @returns {Promise<Object>} Solar data compatible with German calculations
+   */
+  async getSolarData(lat, lng) {
+    try {
+      console.log('Getting solar data for German balcony solar calculations');
+      
+      // Try to get real data from Google Solar API
+      const buildingInsights = await this.getBuildingInsights(lat, lng);
+      
+      // Process and return data in format expected by German solar calculator
+      return this.formatSolarDataForGermanCalculations(buildingInsights);
+      
+    } catch (error) {
+      console.warn('Failed to get real solar data, using mock data:', error);
+      
+      // Return mock data that's compatible with German calculations
+      return this.getMockSolarDataForGermanCalculations();
+    }
+  }
+
+  /**
+   * Format solar data for German balcony solar calculations
+   * @param {Object} buildingInsights - Raw building insights from Solar API
+   * @returns {Object} Formatted solar data
+   */
+  formatSolarDataForGermanCalculations(buildingInsights) {
+    let maxSunshineHoursPerYear = 1600; // Default for Central Europe
+    let carbonOffsetFactorKgPerMwh = 401; // Default German grid emission factor
+    
+    if (buildingInsights && buildingInsights.solarPotential) {
+      const solarPotential = buildingInsights.solarPotential;
+      
+      // Extract sunshine hours from roof segment stats
+      if (solarPotential.roofSegmentStats && solarPotential.roofSegmentStats.length > 0) {
+        const maxSunshine = Math.max(...solarPotential.roofSegmentStats.map(segment => 
+          segment.stats?.sunshineQuantiles?.[5] || 0
+        ));
+        if (maxSunshine > 0) {
+          maxSunshineHoursPerYear = maxSunshine;
+        }
+      }
+      
+      // Use carbon offset factor if available
+      if (solarPotential.carbonOffsetFactorKgPerMwh) {
+        carbonOffsetFactorKgPerMwh = solarPotential.carbonOffsetFactorKgPerMwh;
+      }
+    }
+    
+    return {
+      solarPotential: {
+        maxSunshineHoursPerYear: Math.round(maxSunshineHoursPerYear),
+        carbonOffsetFactorKgPerMwh: carbonOffsetFactorKgPerMwh
+      },
+      buildingInsights: buildingInsights,
+      hasRealData: true
+    };
+  }
+
+  /**
+   * Get mock solar data for German calculations
+   * @returns {Object} Mock solar data
+   */
+  getMockSolarDataForGermanCalculations() {
+    // Realistic values for Central Europe / Germany
+    return {
+      solarPotential: {
+        maxSunshineHoursPerYear: Math.round(1500 + Math.random() * 300), // 1500-1800 hours
+        carbonOffsetFactorKgPerMwh: 401 // German grid emission factor kg CO2/MWh
+      },
+      buildingInsights: null,
+      hasRealData: false,
+      isMockData: true
+    };
+  }
 }

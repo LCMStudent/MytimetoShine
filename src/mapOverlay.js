@@ -420,6 +420,9 @@ export class MapOverlayService {
     this.overlays.forEach(overlay => {
       if (overlay.setMap) {
         overlay.setMap(null);
+      } else if (overlay.map !== undefined) {
+        // Handle AdvancedMarkerElement
+        overlay.map = null;
       } else if (overlay.close) {
         overlay.close();
       }
@@ -440,6 +443,9 @@ export class MapOverlayService {
     this.overlays.forEach(overlay => {
       if (overlay.setMap) {
         overlay.setMap(visible ? this.map : null);
+      } else if (overlay.map !== undefined) {
+        // Handle AdvancedMarkerElement
+        overlay.map = visible ? this.map : null;
       }
     });
 
@@ -527,20 +533,20 @@ export class MapOverlayService {
       map: this.map
     });
 
-    // Create arrow head marker
-    const arrowMarker = new google.maps.Marker({
+    // Create arrow head marker using AdvancedMarkerElement
+    const arrowElement = document.createElement('div');
+    arrowElement.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24" style="transform: rotate(${azimuth}deg);">
+        <path d="M12 2L22 12L12 22L12 17L2 17L2 7L12 7Z" fill="#FF6B00" stroke="#FF6B00" stroke-width="2"/>
+      </svg>
+    `;
+    arrowElement.style.cursor = 'pointer';
+    arrowElement.title = `Azimuth: ${azimuth}°`;
+    
+    const arrowMarker = new google.maps.marker.AdvancedMarkerElement({
       position: arrowEnd,
       map: this.map,
-      icon: {
-        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-        scale: 6,
-        fillColor: '#FF6B00',
-        fillOpacity: 1,
-        strokeColor: '#FF6B00',
-        strokeWeight: 2,
-        rotation: azimuth
-      },
-      title: `Azimuth: ${azimuth}°`
+      content: arrowElement
     });
 
     this.overlays.push(arrowLine);
@@ -707,6 +713,9 @@ export class MapOverlayService {
     this.overlays.forEach(overlay => {
       if (overlay.setMap) {
         overlay.setMap(visible ? this.map : null);
+      } else if (overlay.map !== undefined) {
+        // Handle AdvancedMarkerElement
+        overlay.map = visible ? this.map : null;
       }
     });
 
@@ -858,20 +867,21 @@ export class MapOverlayService {
       }]
     });
 
-    // Add azimuth label
-    const azimuthLabel = new google.maps.Marker({
+    // Add azimuth label using AdvancedMarkerElement
+    const labelElement = document.createElement('div');
+    labelElement.innerHTML = `${azimuth}°`;
+    labelElement.style.cssText = `
+      color: #FF9500;
+      font-weight: bold;
+      font-size: 12px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+      pointer-events: none;
+    `;
+    
+    const azimuthLabel = new google.maps.marker.AdvancedMarkerElement({
       position: new google.maps.LatLng(endLat, endLng),
       map: this.map,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 0
-      },
-      label: {
-        text: `${azimuth}°`,
-        color: '#FF9500',
-        fontWeight: 'bold',
-        fontSize: '12px'
-      }
+      content: labelElement
     });
 
     this.overlays.push(arrowLine);
