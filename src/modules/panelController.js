@@ -59,12 +59,19 @@ export class PanelController {
       this.updatePanelTilt(e.target.value);
     });
 
-    document.getElementById('panel-orientation').addEventListener('change', (e) => {
-      this.updatePanelOrientation(e.target.value);
+    // Button group event listeners for orientation and side
+    document.querySelectorAll('.btn-option[data-group="orientation"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.selectButtonOption(e.target, 'orientation');
+        this.updatePanelOrientation(e.target.dataset.value);
+      });
     });
 
-    document.getElementById('panel-side').addEventListener('change', (e) => {
-      this.updatePanelSide(e.target.value);
+    document.querySelectorAll('.btn-option[data-group="side"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.selectButtonOption(e.target, 'side');
+        this.updatePanelSide(e.target.dataset.value);
+      });
     });
 
     // Azimuth buttons
@@ -368,7 +375,6 @@ export class PanelController {
       const config = this.panelLine.panelConfig;
       
       document.getElementById('line-length').textContent = `${Math.round(this.panelLine.length * 10) / 10}m`;
-      document.getElementById('panel-orientation').textContent = this.getOrientationName(this.panelLine.panelAzimuth);
       document.getElementById('panel-count').textContent = `${config.panelCount} panels`;
       document.getElementById('total-wattage').textContent = `${config.totalWattage}W`;
       document.getElementById('panel-area').textContent = `${Math.round(config.totalArea * 10) / 10} m²`;
@@ -401,21 +407,8 @@ export class PanelController {
       
       console.log('Updating step 3 summary with config:', config);
       
-      // Update the summary in step 3 (different IDs to avoid conflicts)
-      const step3PanelArea = document.querySelector('#step-3 #panel-area');
-      const step3PanelOrientation = document.querySelector('#step-3 #panel-orientation');
-      const step3MountingType = document.getElementById('mounting-type');
-      
-      if (step3PanelArea) {
-        step3PanelArea.textContent = `${Math.round(config.totalArea * 10) / 10} m²`;
-        console.log('Updated step 3 panel area:', step3PanelArea.textContent);
-      }
-      if (step3PanelOrientation) {
-        step3PanelOrientation.textContent = this.getOrientationName(this.panelLine.panelAzimuth);
-      }
-      if (step3MountingType) {
-        step3MountingType.textContent = this.getMountingTypeName(this.panelMounting);
-      }
+      // Note: Summary section was removed from Step 3
+      console.log('Panel properties updated successfully');
       
       // Update constraint info in step 3
       const step3ConstraintInfo = document.querySelector('#step-3 #constraint-info');
@@ -521,6 +514,16 @@ export class PanelController {
                        `${value}°`;
     document.getElementById('panel-tilt-value').textContent = displayText;
     this.updatePanelProperties();
+  }
+
+  selectButtonOption(selectedButton, groupName) {
+    // Remove active class from all buttons in the group
+    document.querySelectorAll(`.btn-option[data-group="${groupName}"]`).forEach(btn => {
+      btn.classList.remove('active');
+    });
+    
+    // Add active class to selected button
+    selectedButton.classList.add('active');
   }
 
   updatePanelOrientation(value) {

@@ -14,7 +14,6 @@ export class UIController {
       // Main buttons
       calculateSolarBtn: document.getElementById('calculate-solar'),
       newAnalysisBtn: document.getElementById('new-analysis'),
-      exportDataBtn: document.getElementById('export-data'),
       
       // Location search
       addressSearchInput: document.getElementById('address-search'),
@@ -64,7 +63,6 @@ export class UIController {
       nerdsViewBtn: document.getElementById('nerds-view-btn'),
       
       // General UI
-      loading: document.getElementById('loading'),
       resultsContent: document.getElementById('results-content'),
     };
   }
@@ -79,10 +77,6 @@ export class UIController {
       this.resetAnalysis();
     });
 
-    this.elements.exportDataBtn?.addEventListener('click', () => {
-      this.exportData();
-    });
-
     // Electricity price input
     this.elements.electricityPriceInput?.addEventListener('input', (e) => {
       this.updateEconomicsCalculations();
@@ -95,7 +89,8 @@ export class UIController {
       return;
     }
 
-    this.showLoading(true);
+    // Navigate to step 4 first to show the results page
+    this.showStep(4);
 
     try {
       const panelConfig = this.app.panelController.panelLine.panelConfig;
@@ -115,8 +110,6 @@ export class UIController {
     } catch (error) {
       console.error('Solar calculation failed:', error);
       this.showError('Failed to calculate solar potential. Please try again.');
-    } finally {
-      this.showLoading(false);
     }
   }
 
@@ -139,9 +132,6 @@ export class UIController {
       
       // Set up view toggle
       this.setupViewToggle();
-      
-      // Navigate to step 4 to show results
-      this.showStep(4);
       
     } catch (error) {
       console.error('Error displaying panel results:', error);
@@ -312,16 +302,6 @@ export class UIController {
     });
   }
 
-  showLoading(show) {
-    const { loading, resultsContent } = this.elements;
-    if (show) {
-      loading?.classList.remove('hidden');
-      resultsContent?.classList.add('hidden');
-    } else {
-      loading?.classList.add('hidden');
-    }
-  }
-
   showError(message) {
     this.showNotification(message, 'error');
   }
@@ -360,36 +340,6 @@ export class UIController {
     if (this.elements.nextStep1Btn) this.elements.nextStep1Btn.classList.add('hidden');
     
     // Keep electricity price setting - don't reset it
-  }
-
-  exportData() {
-    if (!this.app.selectedLocation || !this.app.currentSolarData) {
-      this.showError('No data to export. Please complete a solar analysis first.');
-      return;
-    }
-
-    const exportData = {
-      location: this.app.selectedLocation,
-      timestamp: new Date().toISOString(),
-      solarData: this.app.currentSolarData,
-      panelConfiguration: this.app.panelController.panelLine,
-      analysisOptions: {
-        solarIrradiance: document.getElementById('solar-irradiance')?.checked || false,
-        roofSegment: document.getElementById('roof-segment')?.checked || false,
-        solarPotential: document.getElementById('solar-potential')?.checked || false
-      }
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `solar-analysis-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    // Show success message
-    this.showSuccess('Solar analysis data exported successfully!');
   }
 
   updateEconomicsCalculations() {

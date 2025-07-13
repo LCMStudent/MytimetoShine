@@ -121,36 +121,35 @@
               </div>
               
               <div class="control-group">
-                <label for="panel-orientation">Panel Orientation Along Line:</label>
-                <select id="panel-orientation" class="form-select">
-                  <option value="length">Length-wise (panels run along the line)</option>
-                  <option value="width">Width-wise (panels run perpendicular to line)</option>
-                </select>
+                <label>Panel Orientation Along Line:</label>
+                <div class="button-group">
+                  <button type="button" class="btn btn-option active" data-value="length" data-group="orientation">
+                    Length-wise (panels run along the line)
+                  </button>
+                  <button type="button" class="btn btn-option" data-value="width" data-group="orientation">
+                    Width-wise (panels run perpendicular to line)
+                  </button>
+                </div>
                 <p class="control-hint">How panels are oriented relative to the mounting line</p>
               </div>
               
               <div class="control-group">
-                <label for="panel-side">Panel Side:</label>
-                <select id="panel-side" class="form-select">
-                  <option value="left">Left side of line</option>
-                  <option value="right">Right side of line</option>
-                </select>
+                <label>Panel Side:</label>
+                <div class="button-group">
+                  <button type="button" class="btn btn-option active" data-value="left" data-group="side">
+                    Left side of line
+                  </button>
+                  <button type="button" class="btn btn-option" data-value="right" data-group="side">
+                    Right side of line
+                  </button>
+                </div>
                 <p class="control-hint">Which side of the mounting line the panels face</p>
               </div>
               
               <div class="system-constraints">
                 <h5>⚡ System Constraints</h5>
-                <p class="constraint-info">Maximum system power: <strong>2000W</strong> (with 200W leeway)</p>
+                <p class="constraint-info">Maximum system Solarpanel power: <strong>2000W</strong></p>
                 <p class="constraint-info" id="constraint-info"></p>
-              </div>
-            </div>
-            
-            <div class="summary-section">
-              <h4>📊 Summary</h4>
-              <div id="balcony-summary">
-                <p>Panel area: <span id="panel-area">0 m²</span></p>
-                <p>Orientation: <span id="panel-orientation">-</span></p>
-                <p>Mounting: <span id="mounting-type">Railing Mount</span></p>
               </div>
             </div>
             
@@ -163,11 +162,7 @@
           <div class="step hidden" id="step-4">
             <h3>Step 4: Balcony Solar Results</h3>
             <div id="solar-results" class="results-container">
-              <div class="loading hidden" id="loading">
-                <div class="loader"></div>
-                <p>Analyzing balcony solar potential...</p>
-              </div>
-              
+              <!-- Results content -->
               <div id="results-content" class="hidden">
                 <!-- View Toggle -->
                 <div class="view-toggle">
@@ -178,14 +173,14 @@
                 <!-- Standard View (Simple) -->
                 <div id="standard-view" class="results-view">
                   <div class="result-item large">
-                    <h4>⚡ Annual Energy Production</h4>
+                    <h4>⚡ Max. Annual Energy Production*</h4>
                     <p id="standard-annual-energy" class="big-number">--</p>
-                    <small>Expected energy output per year</small>
+                    <small>*Expected energy output per year, ignoring possible shading and other losses</small>
                   </div>
                   <div class="result-item large">
-                    <h4>💰 Annual Cost Savings</h4>
+                    <h4>💰 Max. Annual Cost Savings**</h4>
                     <p id="standard-annual-savings" class="big-number">--</p>
-                    <small>Money saved on electricity bills</small>
+                    <small>**This is not money paid out to you, but rather the amount you could save on your electricity bill.</small>
                   </div>
                 </div>
                 
@@ -320,7 +315,6 @@
             
             <div class="action-buttons">
               <button id="new-analysis" class="btn btn-primary">New Analysis</button>
-              <button id="export-data" class="btn btn-secondary">Export Data</button>
             </div>
           </div>
         </div>

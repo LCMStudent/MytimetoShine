@@ -8,14 +8,27 @@ import { PanelController } from './modules/panelController.js'
 import { SolarCalculator } from './modules/solarCalculator.js'
 import { UIController } from './modules/uiController.js'
 
-// Configuration
+// Configuration from environment variables
 const CONFIG = {
-  GOOGLE_MAPS_API_KEY: 'AIzaSyB8sldkCqW9munVjUQ7pdZR2F3C6Izb9WI',
-  SOLAR_API_KEY: 'AIzaSyB8sldkCqW9munVjUQ7pdZR2F3C6Izb9WI',
-  DEFAULT_CENTER: { lat: 49.9929, lng: 8.2473 },
-  DEFAULT_ZOOM: 13,
-  USE_MOCK_SOLAR_DATA: false
+  GOOGLE_MAPS_API_KEY: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+  SOLAR_API_KEY: import.meta.env.VITE_SOLAR_API_KEY,
+  DEFAULT_CENTER: { 
+    lat: parseFloat(import.meta.env.VITE_DEFAULT_LAT) || 49.9929, 
+    lng: parseFloat(import.meta.env.VITE_DEFAULT_LNG) || 8.2473 
+  },
+  DEFAULT_ZOOM: parseInt(import.meta.env.VITE_DEFAULT_ZOOM) || 13,
+  USE_MOCK_SOLAR_DATA: import.meta.env.VITE_USE_MOCK_SOLAR_DATA === 'true'
 };
+
+// Validate required environment variables
+if (!CONFIG.GOOGLE_MAPS_API_KEY) {
+  console.error('❌ Missing VITE_GOOGLE_MAPS_API_KEY in environment variables');
+  console.log('📝 Please create a .env file with your API keys. See .env.example for reference.');
+}
+
+if (!CONFIG.SOLAR_API_KEY) {
+  console.error('❌ Missing VITE_SOLAR_API_KEY in environment variables');
+}
 
 class SolarMapApp {
   constructor() {

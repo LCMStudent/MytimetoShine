@@ -393,6 +393,45 @@ body {
   flex: 1;
 }
 
+/* Button Groups for Option Selection */
+.button-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-option {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  background: var(--background-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: var(--transition-fast);
+  text-align: center;
+}
+
+.btn-option:hover {
+  border-color: var(--secondary-color);
+  background: var(--background-tertiary);
+  transform: translateY(-1px);
+}
+
+.btn-option.active {
+  background: var(--secondary-color);
+  color: var(--background-primary);
+  border-color: var(--secondary-color);
+  box-shadow: var(--shadow-light);
+}
+
+.btn-option.active:hover {
+  background: var(--secondary-hover);
+  border-color: var(--secondary-hover);
+}
+
 /* Results - Uber Style */
 .results-container {
   margin-bottom: 24px;
