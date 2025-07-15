@@ -26,6 +26,10 @@ export class PanelController {
     this.panelSide = 'left';
     this.maxSystemWattage = 2000;
     this.wattageLeeway = 200;
+    
+    // Panel count override
+    this.panelCountOverride = false;
+    this.maxPanelCount = 4;
   }
 
   setupEventListeners() {
@@ -79,6 +83,15 @@ export class PanelController {
       btn.addEventListener('click', (e) => {
         this.selectAzimuth(e.target.dataset.azimuth);
       });
+    });
+
+    // Panel count override controls
+    document.getElementById('enable-panel-count').addEventListener('change', (e) => {
+      this.togglePanelCountOverride(e.target.checked);
+    });
+
+    document.getElementById('panel-count-slider').addEventListener('input', (e) => {
+      this.updatePanelCountOverride(parseInt(e.target.value));
     });
   }
 
@@ -216,31 +229,39 @@ export class PanelController {
     let panelCount, availableLength, totalWattage, totalArea;
     let isConstrainedByLength = false;
     let isConstrainedByWattage = false;
+    let isConstrainedByCount = false;
     
-    if (this.panelOrientation === 'length') {
-      // Panels mounted with length along the line
-      availableLength = lineLength;
-      panelCount = Math.floor(availableLength / this.panelLength);
+    // Check if panel count override is enabled
+    if (this.panelCountOverride) {
+      // Use the manually set panel count
+      panelCount = this.maxPanelCount;
+      isConstrainedByCount = true;
+      console.log('Using panel count override:', panelCount, 'panels');
     } else {
-      // Panels mounted with width along the line
-      availableLength = lineLength;
-      panelCount = Math.floor(availableLength / this.panelWidth);
+      // Calculate panel count based on available line length
+      if (this.panelOrientation === 'length') {
+        // Panels mounted with length along the line
+        availableLength = lineLength;
+        panelCount = Math.floor(availableLength / this.panelLength);
+      } else {
+        // Panels mounted with width along the line
+        availableLength = lineLength;
+        panelCount = Math.floor(availableLength / this.panelWidth);
+      }
+      
+      // Check if we exceed maximum system wattage
+      const maxPanelsByWattage = Math.floor((this.maxSystemWattage + this.wattageLeeway) / this.panelWattage);
+      
+      if (panelCount > maxPanelsByWattage) {
+        panelCount = maxPanelsByWattage;
+        isConstrainedByWattage = true;
+      } else {
+        isConstrainedByLength = true;
+      }
     }
     
-    // Calculate initial total wattage
+    // Calculate total wattage and area
     totalWattage = panelCount * this.panelWattage;
-    
-    // Check if we exceed maximum system wattage
-    const maxPanelsByWattage = Math.floor((this.maxSystemWattage + this.wattageLeeway) / this.panelWattage);
-    
-    if (panelCount > maxPanelsByWattage) {
-      panelCount = maxPanelsByWattage;
-      totalWattage = panelCount * this.panelWattage;
-      isConstrainedByWattage = true;
-    } else {
-      isConstrainedByLength = true;
-    }
-    
     totalArea = panelCount * this.panelLength * this.panelWidth;
     
     return {
@@ -249,6 +270,7 @@ export class PanelController {
       totalArea,
       isConstrainedByLength,
       isConstrainedByWattage,
+      isConstrainedByCount,
       availableLength
     };
   }
@@ -364,7 +386,9 @@ export class PanelController {
   updatePanelLineStatus() {
     const hasLine = this.panelLine !== null;
     
-    document.getElementById('panel-line-status').textContent = hasLine ? 'Yes' : 'No';
+    const statusElement = document.getElementById('panel-line-status');
+    statusElement.textContent = hasLine ? 'Yes' : 'No';
+    statusElement.setAttribute('data-status', hasLine ? 'yes' : 'no');
     
     const detailsDiv = document.getElementById('panel-line-details');
     const nextBtn = document.getElementById('next-step-2');
@@ -379,8 +403,16 @@ export class PanelController {
       document.getElementById('total-wattage').textContent = `${config.totalWattage}W`;
       document.getElementById('panel-area').textContent = `${Math.round(config.totalArea * 10) / 10} m²`;
       
+      // Update panel orientation display
+      const orientationName = this.getOrientationName(this.panelLine.azimuth);
+      const orientationElement = document.getElementById('panel-orientation');
+      orientationElement.innerHTML = `<span class="compass-direction ${orientationName.toLowerCase()}">${orientationName}</span> (${Math.round(this.panelLine.azimuth)}°)`;
+      
       // Show constraint information
-      if (config.isConstrainedByWattage) {
+      if (config.isConstrainedByCount) {
+        document.getElementById('constraint-info').textContent = `Limited by manual panel count setting`;
+        document.getElementById('constraint-info').style.color = '#10B981';
+      } else if (config.isConstrainedByWattage) {
         document.getElementById('constraint-info').textContent = `Limited by ${this.maxSystemWattage}W max power`;
         document.getElementById('constraint-info').style.color = '#FF6B35';
       } else if (config.isConstrainedByLength) {
@@ -413,7 +445,10 @@ export class PanelController {
       // Update constraint info in step 3
       const step3ConstraintInfo = document.querySelector('#step-3 #constraint-info');
       if (step3ConstraintInfo) {
-        if (config.isConstrainedByWattage) {
+        if (config.isConstrainedByCount) {
+          step3ConstraintInfo.textContent = `Manual panel count limit: ${config.panelCount} panels`;
+          step3ConstraintInfo.style.color = '#10B981';
+        } else if (config.isConstrainedByWattage) {
           step3ConstraintInfo.textContent = `System limited by ${this.maxSystemWattage}W max power (${config.panelCount} panels)`;
           step3ConstraintInfo.style.color = '#FF6B35';
         } else {
@@ -540,6 +575,37 @@ export class PanelController {
     // Handle azimuth selection for manual override
     console.log('Selected azimuth:', azimuth);
     // TODO: Implement azimuth override if needed
+  }
+
+  togglePanelCountOverride(enabled) {
+    this.panelCountOverride = enabled;
+    const slider = document.getElementById('panel-count-slider');
+    const valueDisplay = document.getElementById('panel-count-value');
+    const container = document.getElementById('panel-count-control');
+    
+    if (enabled) {
+      slider.disabled = false;
+      container.classList.remove('disabled');
+      console.log('Panel count override enabled:', this.maxPanelCount, 'panels');
+    } else {
+      slider.disabled = true;
+      container.classList.add('disabled');
+      console.log('Panel count override disabled - using length-based calculation');
+    }
+    
+    // Update panel configuration if line exists
+    this.updatePanelProperties();
+  }
+
+  updatePanelCountOverride(count) {
+    this.maxPanelCount = count;
+    const valueDisplay = document.getElementById('panel-count-value');
+    valueDisplay.textContent = `${count} panel${count !== 1 ? 's' : ''}`;
+    
+    console.log('Panel count override set to:', count, 'panels');
+    
+    // Update panel configuration if line exists
+    this.updatePanelProperties();
   }
 
   updatePanelProperties() {

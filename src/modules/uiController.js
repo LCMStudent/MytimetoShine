@@ -45,6 +45,8 @@ export class UIController {
       
       // Nerds View: Compliance
       nerdsComplianceStatus: document.getElementById('nerds-compliance-status'),
+      nerdsDcLimit: document.getElementById('nerds-dc-limit'),
+      nerdsAcLimit: document.getElementById('nerds-ac-limit'),
 
       // Nerds View: Seasonal
       nerdsWinterDaily: document.getElementById('nerds-winter-daily'),
@@ -157,7 +159,7 @@ export class UIController {
       nerdsAnnualEnergy, nerdsDailyEnergy, nerdsPeakSunHours,
       nerdsPanelCount, nerdsDcPower, nerdsPanelArea, nerdsPanelAzimuth, nerdsPanelTilt, nerdsSystemEfficiency,
       nerdsAnnualSavings, nerdsLifetimeSavings, nerdsCo2Reduction,
-      nerdsComplianceStatus
+      nerdsComplianceStatus, nerdsDcLimit, nerdsAcLimit
     } = this.elements;
 
     // Store the german output for economics updates
@@ -179,21 +181,47 @@ export class UIController {
     // Economics Section - will be updated by updateEconomicsCalculations()
     this.updateEconomicsCalculations();
     
-    // German Compliance Section
+    // Regional Compliance Section
     if (nerdsComplianceStatus) {
       let status = 'Compliant';
       let className = 'compliance-good';
       
-      if (germanOutput.exceedsPanelLimit) {
-        status = 'Exceeds 2000W DC limit';
-        className = 'compliance-error';
-      } else if (germanOutput.isClippingSignificant) {
-        status = 'Oversized (clipping)';
-        className = 'compliance-warning';
+      // Update regulatory limit displays
+      const { nerdsDcLimit, nerdsAcLimit } = this.elements;
+      
+      if (!germanOutput.isInEurope) {
+        // For locations outside Europe
+        status = `${germanOutput.regionName} - No limits applied`;
+        className = 'compliance-info';
+        if (nerdsDcLimit) nerdsDcLimit.textContent = 'No limit';
+        if (nerdsAcLimit) nerdsAcLimit.textContent = 'No limit';
+      } else {
+        // For European locations with German regulations
+        if (nerdsDcLimit) nerdsDcLimit.textContent = '2000W';
+        if (nerdsAcLimit) nerdsAcLimit.textContent = '800W';
+        
+        if (germanOutput.exceedsPanelLimit) {
+          status = 'Exceeds 2000W DC limit (German regulations)';
+          className = 'compliance-error';
+        } else if (germanOutput.exceedsInverterCapacity) {
+          status = 'Exceeds 800W AC limit (German regulations)';
+          className = 'compliance-error';
+        } else if (germanOutput.isClippingSignificant) {
+          status = 'Compliant but oversized (clipping)';
+          className = 'compliance-warning';
+        } else {
+          status = 'Compliant with German regulations';
+          className = 'compliance-good';
+        }
       }
       
       nerdsComplianceStatus.textContent = status;
       nerdsComplianceStatus.className = `compliance-status ${className}`;
+    }
+    
+    // DC and AC Limits
+    if (nerdsDcLimit && nerdsAcLimit) {
+      nerdsDcLimit.textContent = `${germanOutput.dcLimit}W DC, ${germanOutput.acLimit}W AC`;
     }
     
     // Seasonal Analysis Section

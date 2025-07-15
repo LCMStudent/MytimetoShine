@@ -1,5 +1,7 @@
 /**
- * SolarCalculator - Handles solar calculations and German regulations
+ * SolarCalculator - Handles global solar calculations with regional regulations
+ * Works for any location worldwide, including Northern and Southern Hemisphere
+ * Applies German regulations only for European locations
  */
 export class SolarCalculator {
   constructor(solarAPI) {
@@ -19,10 +21,10 @@ export class SolarCalculator {
       }
       
       // Calculate efficiency based on orientation and tilt
-      const efficiency = this.calculatePanelEfficiency(panelAzimuth, panelTilt);
+      const efficiency = this.calculatePanelEfficiency(panelAzimuth, panelTilt, location.lat);
       
       // Calculate German balcony solar output with regulations
-      const germanOutput = this.calculateGermanSolarOutput(solarData, panelConfig, efficiency, panelAzimuth, panelTilt);
+      const germanOutput = this.calculateGermanSolarOutput(solarData, panelConfig, efficiency, panelAzimuth, panelTilt, location);
       
       return {
         solarData,
@@ -40,47 +42,93 @@ export class SolarCalculator {
   }
 
   /**
-   * Calculate panel efficiency based on orientation and tilt
+   * Calculate panel efficiency based on orientation and tilt (hemisphere-aware)
    */
-  calculatePanelEfficiency(azimuth, tilt) {
-    // Optimal azimuth for Germany is around 180° (south-facing)
-    // Optimal tilt is around 30-35° for Germany's latitude
+  calculatePanelEfficiency(azimuth, tilt, latitude = 51.0) {
+    const locationInfo = this.getLocationInfo(latitude, 0);
     
-    // Calculate azimuth efficiency (south = 100%, north = 70%)
+    // Calculate azimuth efficiency based on hemisphere
+    // Northern Hemisphere: South (180°) is optimal
+    // Southern Hemisphere: North (0°) is optimal
+    const optimalAzimuth = locationInfo.optimalAzimuth;
     const azimuthRadians = azimuth * Math.PI / 180;
-    const southAzimuth = 180 * Math.PI / 180;
-    const azimuthDifference = Math.abs(azimuthRadians - southAzimuth);
+    const optimalAzimuthRadians = optimalAzimuth * Math.PI / 180;
+    const azimuthDifference = Math.abs(azimuthRadians - optimalAzimuthRadians);
     const normalizedAzimuthDiff = Math.min(azimuthDifference, 2 * Math.PI - azimuthDifference);
     const azimuthEfficiency = 0.7 + 0.3 * Math.cos(normalizedAzimuthDiff);
     
-    // Calculate tilt efficiency (30° = 100%, 0° = 85%, 90° = 75%)
+    // Calculate tilt efficiency (optimal tilt depends on latitude)
+    const optimalTilt = locationInfo.optimalTilt;
     let tiltEfficiency;
-    if (tilt <= 30) {
-      tiltEfficiency = 0.85 + (tilt / 30) * 0.15;
-    } else if (tilt <= 60) {
-      tiltEfficiency = 1.0 - ((tilt - 30) / 30) * 0.15;
+    if (tilt <= optimalTilt) {
+      tiltEfficiency = 0.85 + (tilt / optimalTilt) * 0.15;
+    } else if (tilt <= optimalTilt + 30) {
+      tiltEfficiency = 1.0 - ((tilt - optimalTilt) / 30) * 0.15;
     } else {
-      tiltEfficiency = 0.85 - ((tilt - 60) / 30) * 0.10;
+      tiltEfficiency = 0.85 - ((tilt - optimalTilt - 30) / 30) * 0.10;
     }
     
     // Combine efficiencies
     const totalEfficiency = azimuthEfficiency * tiltEfficiency;
     
+    console.log('Panel efficiency calculation:', {
+      hemisphere: locationInfo.hemisphere,
+      optimalAzimuth,
+      optimalTilt,
+      azimuthEfficiency: Math.round(azimuthEfficiency * 100) / 100,
+      tiltEfficiency: Math.round(tiltEfficiency * 100) / 100,
+      totalEfficiency: Math.round(totalEfficiency * 100) / 100
+    });
+    
     return totalEfficiency;
   }
 
   /**
-   * Calculate solar power output with German balcony solar regulations
-   * - Max 800W AC output to grid (inverter limit)
-   * - Max 2000W DC panels allowed
+   * Calculate solar power output with location-specific regulations
+   * - European locations: German balcony solar regulations (800W inverter, 2000W panels)
+   * - Non-European locations: No regulatory limits
    * - Uses real Solar API data when available
    */
-  calculateGermanSolarOutput(solarData, panelConfig, efficiency, panelAzimuth = 180, panelTilt = 30) {
-    const MAX_INVERTER_OUTPUT_W = 800; // German regulation: max 800W AC to grid
-    const MAX_PANEL_CAPACITY_W = 2000; // German regulation: max 2000W DC panels
+  calculateGermanSolarOutput(solarData, panelConfig, efficiency, panelAzimuth = 180, panelTilt = 30, location = null) {
+    // Default location for fallback (Central Europe)
+    const defaultLocation = { lat: 51.0, lng: 10.0 };
+    const calculationLocation = location || defaultLocation;
     
-    // Check if system exceeds German limits
-    const exceedsPanelLimit = panelConfig.totalWattage > MAX_PANEL_CAPACITY_W;
+    // Get regional regulations based on location
+    let regulations;
+    if (calculationLocation.lat !== undefined && calculationLocation.lng !== undefined) {
+      regulations = this.getRegionalSolarRegulations(calculationLocation.lat, calculationLocation.lng);
+    } else {
+      // Fallback to German regulations if location parsing fails
+      regulations = {
+        maxInverterOutputW: 800,
+        maxPanelCapacityW: 2000,
+        regionName: 'Europe (German Regulations - Default)',
+        applyGermanRules: true,
+        description: 'German balcony solar regulations (800W inverter, 2000W panels) - applied as default'
+      };
+    }
+    
+    console.log('Applying regulations for:', regulations.regionName);
+    console.log('Regulation details:', regulations.description);
+    console.log('Calculation location:', { lat: calculationLocation.lat, lng: calculationLocation.lng });
+    
+    // Get location info for hemisphere-aware calculations
+    const locationInfo = this.getLocationInfo(calculationLocation.lat, calculationLocation.lng);
+    console.log('Location analysis:', {
+      hemisphere: locationInfo.hemisphere,
+      optimalAzimuth: locationInfo.optimalAzimuth,
+      optimalTilt: locationInfo.optimalTilt,
+      isEuropean: regulations.applyGermanRules
+    });
+    
+    // Check if system exceeds regional limits (only for European locations)
+    let exceedsPanelLimit = false;
+    let exceedsInverterCapacity = false;
+    
+    if (regulations.applyGermanRules) {
+      exceedsPanelLimit = panelConfig.totalWattage > regulations.maxPanelCapacityW;
+    }
     
     // Use real Solar API data when available, fallback to German averages
     let annualSunshineHours, peakSunHours;
@@ -98,16 +146,26 @@ export class SolarCalculator {
       console.log('Using fallback German averages:', { annualIrradianceKwhPerSqm, peakSunHours });
     }
     
-    // Calculate realistic daily energy production with clipping
+    // Calculate realistic daily energy production with clipping (if regulations apply)
+    const maxInverterOutputForCalculation = regulations.applyGermanRules 
+      ? regulations.maxInverterOutputW 
+      : panelConfig.totalWattage * 2; // Allow much higher limit for non-European locations
+    
     const dailyProduction = this.calculateDailyEnergyWithClipping(
       panelConfig.totalWattage,
       peakSunHours,
       efficiency,
-      MAX_INVERTER_OUTPUT_W,
+      maxInverterOutputForCalculation,
       panelAzimuth,  // Pass panel orientation
       panelTilt,     // Pass panel tilt
-      172            // Summer solstice for base calculation
+      172,           // Summer solstice for base calculation
+      calculationLocation.lat   // Pass latitude for hemisphere-aware calculations
     );
+    
+    // Check inverter capacity limits
+    if (regulations.applyGermanRules) {
+      exceedsInverterCapacity = dailyProduction.maxInstantaneousPower > regulations.maxInverterOutputW;
+    }
     
     // Annual calculation: daily average × 365
     const annualEnergyProduction = dailyProduction.totalEnergy * 365;
@@ -131,10 +189,11 @@ export class SolarCalculator {
     const seasonalData = this.calculateSeasonalVariations(
       panelConfig.totalWattage,
       efficiency,
-      MAX_INVERTER_OUTPUT_W,
+      maxInverterOutputForCalculation,
       panelAzimuth,
       panelTilt,
-      solarData // Pass Solar API data for realistic seasonal calculations
+      solarData, // Pass Solar API data for realistic seasonal calculations
+      calculationLocation.lat // Pass latitude for hemisphere-aware calculations
     );
     
     return {
@@ -144,20 +203,24 @@ export class SolarCalculator {
       clippingLossPercentage: Math.round(clippingLossPercentage * 10) / 10,
       hoursClippedPerDay: Math.round(dailyProduction.hoursClippedPerDay * 100) / 100,
       maxInstantaneousPower: Math.round(dailyProduction.maxInstantaneousPower),
-      maxInverterOutput: MAX_INVERTER_OUTPUT_W,
+      maxInverterOutput: regulations.maxInverterOutputW,
       isClippingSignificant: clippingLossPercentage > 5,
-      exceedsInverterCapacity: dailyProduction.maxInstantaneousPower > MAX_INVERTER_OUTPUT_W,
+      exceedsInverterCapacity: exceedsInverterCapacity,
       exceedsPanelLimit,
-      isCompliantWithGermanRules: !exceedsPanelLimit,
+      isCompliantWithGermanRules: regulations.applyGermanRules ? (!exceedsPanelLimit && !exceedsInverterCapacity) : true,
       peakSunHours: Math.round(peakSunHours * 100) / 100,
       seasonalData: seasonalData, // Add seasonal analysis data
-      dailyEnergyWh: Math.round(dailyProduction.totalEnergy) // Add daily energy for detailed view
+      dailyEnergyWh: Math.round(dailyProduction.totalEnergy), // Add daily energy for detailed view
+      // Regional information
+      regulations: regulations,
+      isInEurope: regulations.applyGermanRules,
+      regionName: regulations.regionName
     };
   }
 
   /**
    * Calculate solar position and irradiance throughout the day
-   * Uses proper solar geometry for German latitude (~51°N)
+   * Works for any latitude (Northern and Southern Hemisphere)
    */
   calculateSolarPosition(hour, dayOfYear = 172, latitude = 51.0) {
     // Convert hour to decimal (e.g., 12.5 for 12:30)
@@ -216,10 +279,10 @@ export class SolarCalculator {
   }
 
   /**
-   * Generate realistic daily solar irradiance curve for Germany
+   * Generate realistic daily solar irradiance curve for any location
    * Uses proper solar geometry and atmospheric modeling
    */
-  generateGermanSolarCurve(dayOfYear = 172, latitude = 51.0) {
+  generateSolarCurve(dayOfYear = 172, latitude = 51.0) {
     const hourlyIrradiance = [];
     
     for (let hour = 0; hour < 24; hour++) {
@@ -229,8 +292,8 @@ export class SolarCalculator {
         // Calculate base irradiance from solar geometry
         let irradiance = this.calculateAtmosphericAttenuation(solarPos.elevation);
         
-        // Apply German weather corrections
-        const weatherFactor = this.getGermanWeatherFactor(dayOfYear);
+        // Apply location-specific weather corrections
+        const weatherFactor = this.getLocationWeatherFactor(dayOfYear, latitude);
         
         irradiance *= weatherFactor;
         
@@ -249,9 +312,9 @@ export class SolarCalculator {
 
   /**
    * Calculate daily energy production with inverter clipping
-   * Now accounts for realistic sun movement, panel orientation, and atmospheric effects
+   * Now accounts for realistic sun movement, panel orientation, and atmospheric effects globally
    */
-  calculateDailyEnergyWithClipping(dcCapacityW, peakSunHours, efficiency, maxInverterOutputW, panelAzimuth = 180, panelTilt = 30, dayOfYear = 172) {
+  calculateDailyEnergyWithClipping(dcCapacityW, peakSunHours, efficiency, maxInverterOutputW, panelAzimuth = 180, panelTilt = 30, dayOfYear = 172, latitude = 51.0) {
     let totalEnergyWh = 0;
     let energyLostToClippingWh = 0;
     let maxInstantaneousPower = 0;
@@ -259,11 +322,11 @@ export class SolarCalculator {
     
     // Calculate hourly production accounting for sun movement and panel orientation
     for (let hour = 0; hour < 24; hour++) {
-      const baseIrradiance = this.getHourlyIrradiance(hour, peakSunHours, dayOfYear, 51.0);
+      const baseIrradiance = this.getHourlyIrradiance(hour, peakSunHours, dayOfYear, latitude);
       
       if (baseIrradiance > 0.001) { // Only process significant irradiance
         // Get actual sun position for this hour
-        const sunPosition = this.calculateSolarPosition(hour, dayOfYear);
+        const sunPosition = this.calculateSolarPosition(hour, dayOfYear, latitude);
         
         // Calculate how well the panel is oriented relative to the sun
         const panelOrientationFactor = this.calculatePanelOrientationFactor(
@@ -339,11 +402,11 @@ export class SolarCalculator {
 
   /**
    * Get hourly solar irradiance factor (0-1) based on realistic sun position
-   * Accounts for German latitude, seasonal variations, and atmospheric effects
+   * Accounts for local latitude, seasonal variations, and atmospheric effects
    */
   getHourlyIrradiance(hour, peakSunHours, dayOfYear = 172, latitude = 51.0) {
     // Use realistic solar curve based on sun position and atmospheric conditions
-    const realisticCurve = this.generateGermanSolarCurve(dayOfYear, latitude);
+    const realisticCurve = this.generateSolarCurve(dayOfYear, latitude);
     const rawFactor = realisticCurve[hour] || 0;
     
     // Scale the curve to match the actual peak sun hours for the location
@@ -358,30 +421,62 @@ export class SolarCalculator {
 
   /**
    * Calculate seasonal energy production variations using real Solar API data
-   * Shows how solar output changes throughout the year based on actual solar geometry
+   * Shows how solar output changes throughout the year based on actual solar geometry (hemisphere-aware)
    */
-  calculateSeasonalVariations(dcCapacityW, efficiency, maxInverterOutputW, panelAzimuth, panelTilt, solarData = null) {
-    const seasons = [
-      { name: 'Winter Solstice', day: 355, month: 'December' },
-      { name: 'Spring Equinox', day: 80, month: 'March' },
-      { name: 'Summer Solstice', day: 172, month: 'June' },
-      { name: 'Fall Equinox', day: 266, month: 'September' }
-    ];
+  calculateSeasonalVariations(dcCapacityW, efficiency, maxInverterOutputW, panelAzimuth, panelTilt, solarData = null, latitude = 51.0) {
+    const locationInfo = this.getLocationInfo(latitude, 0);
+    
+    // Define seasons based on hemisphere
+    let seasons;
+    if (locationInfo.isNorthernHemisphere) {
+      seasons = [
+        { name: 'Winter Solstice', day: 355, month: 'December' },
+        { name: 'Spring Equinox', day: 80, month: 'March' },
+        { name: 'Summer Solstice', day: 172, month: 'June' },
+        { name: 'Fall Equinox', day: 266, month: 'September' }
+      ];
+    } else {
+      // Southern Hemisphere: seasons are reversed
+      seasons = [
+        { name: 'Summer Solstice', day: 355, month: 'December' },
+        { name: 'Fall Equinox', day: 80, month: 'March' },
+        { name: 'Winter Solstice', day: 172, month: 'June' },
+        { name: 'Spring Equinox', day: 266, month: 'September' }
+      ];
+    }
     
     // Calculate base annual peak sun hours from Solar API or fallback
     let annualPeakSunHours;
     if (solarData && solarData.solarPotential && solarData.solarPotential.maxSunshineHoursPerYear) {
       annualPeakSunHours = solarData.solarPotential.maxSunshineHoursPerYear / 365;
-      console.log('Using real Solar API data for seasonal calculations:', { annualPeakSunHours });
+      console.log('Using real Solar API data for seasonal calculations:', { annualPeakSunHours, hemisphere: locationInfo.hemisphere });
     } else {
-      // Fallback to German climate averages
-      annualPeakSunHours = 1100 / 365; // ~3.0 hours/day average for Germany
-      console.log('Using German climate fallback for seasonal calculations:', { annualPeakSunHours });
+      // Fallback based on climate zone
+      const absLatitude = Math.abs(latitude);
+      let baseIrradiance;
+      
+      if (absLatitude >= 60) {
+        baseIrradiance = 800; // Polar regions
+      } else if (absLatitude >= 45) {
+        baseIrradiance = 1100; // Temperate regions
+      } else if (absLatitude >= 23.5) {
+        baseIrradiance = 1400; // Subtropical regions
+      } else {
+        baseIrradiance = 1600; // Tropical regions
+      }
+      
+      annualPeakSunHours = baseIrradiance / 365;
+      console.log('Using climate-based fallback for seasonal calculations:', { 
+        absLatitude, 
+        baseIrradiance, 
+        annualPeakSunHours, 
+        hemisphere: locationInfo.hemisphere 
+      });
     }
     
     const seasonalResults = seasons.map(season => {
       // Calculate realistic seasonal variation based on solar geometry
-      const seasonalIrradiance = this.calculateSeasonalSolarIrradiance(season.day, 51.0); // German latitude
+      const seasonalIrradiance = this.calculateSeasonalSolarIrradiance(season.day, latitude);
       const seasonalPeakSunHours = annualPeakSunHours * seasonalIrradiance;
       
       const dailyProduction = this.calculateDailyEnergyWithClipping(
@@ -391,7 +486,8 @@ export class SolarCalculator {
         maxInverterOutputW,
         panelAzimuth,
         panelTilt,
-        season.day
+        season.day,
+        latitude // Pass latitude for hemisphere-aware calculations
       );
       
       return {
@@ -443,44 +539,76 @@ export class SolarCalculator {
       }
     }
     
-    // Apply German weather factors (cloud cover, atmospheric conditions)
-    const weatherFactor = this.getGermanWeatherFactor(dayOfYear);
+    // Apply location-specific weather factors (cloud cover, atmospheric conditions)
+    const weatherFactor = this.getLocationWeatherFactor(dayOfYear, latitude);
     const geometricFactor = totalDailyIrradiance / Math.max(summerTotalIrradiance, 0.1);
     
     return Math.max(0.1, Math.min(1.5, geometricFactor * weatherFactor));
   }
 
   /**
-   * Get German-specific weather factors throughout the year
-   * Accounts for cloud cover, precipitation, and atmospheric clarity
+   * Get location-specific weather factors throughout the year
+   * Accounts for hemisphere differences and climate patterns
    */
-  getGermanWeatherFactor(dayOfYear) {
-    // German weather patterns: cloudy winters, clearer summers
-    // Data based on German meteorological service (DWD) climate data
+  getLocationWeatherFactor(dayOfYear, latitude = 51.0) {
+    const locationInfo = this.getLocationInfo(latitude, 0);
     
-    // Winter (Dec-Feb): High cloud cover, low sun angle
-    // Spring (Mar-May): Variable weather, increasing clarity
-    // Summer (Jun-Aug): Best conditions, least cloud cover
-    // Fall (Sep-Nov): Increasing clouds, variable weather
-    
-    const monthApprox = Math.floor((dayOfYear - 1) / 30.4) + 1; // Approximate month
-    
-    let weatherFactor;
-    if (monthApprox <= 2 || monthApprox === 12) {
-      // Winter: 40-50% clear sky probability
-      weatherFactor = 0.45;
-    } else if (monthApprox >= 3 && monthApprox <= 5) {
-      // Spring: 55-65% clear sky probability
-      weatherFactor = 0.60;
-    } else if (monthApprox >= 6 && monthApprox <= 8) {
-      // Summer: 65-75% clear sky probability  
-      weatherFactor = 0.70;
-    } else {
-      // Fall: 50-60% clear sky probability
-      weatherFactor = 0.55;
+    // Adjust day of year for Southern Hemisphere (seasons are reversed)
+    let adjustedDayOfYear = dayOfYear;
+    if (locationInfo.isSouthernHemisphere) {
+      adjustedDayOfYear = (dayOfYear + 182.5) % 365;
     }
     
-    return weatherFactor;
+    // Base weather patterns by climate zone
+    let baseWeatherFactor;
+    const absLatitude = Math.abs(latitude);
+    
+    if (absLatitude >= 60) {
+      // Polar regions: harsh conditions, low sun angles
+      baseWeatherFactor = 0.35;
+    } else if (absLatitude >= 45) {
+      // Temperate regions (like Germany): moderate cloud cover
+      baseWeatherFactor = 0.65;
+    } else if (absLatitude >= 23.5) {
+      // Subtropical regions: generally clearer skies
+      baseWeatherFactor = 0.75;
+    } else {
+      // Tropical regions: high humidity, frequent clouds
+      baseWeatherFactor = 0.60;
+    }
+    
+    // Seasonal variation
+    const monthApprox = Math.floor((adjustedDayOfYear - 1) / 30.4) + 1;
+    let seasonalMultiplier = 1.0;
+    
+    if (monthApprox <= 2 || monthApprox === 12) {
+      // Winter: more clouds, storms
+      seasonalMultiplier = 0.8;
+    } else if (monthApprox >= 3 && monthApprox <= 5) {
+      // Spring: variable weather
+      seasonalMultiplier = 0.95;
+    } else if (monthApprox >= 6 && monthApprox <= 8) {
+      // Summer: generally clearer
+      seasonalMultiplier = 1.1;
+    } else {
+      // Fall: increasing clouds
+      seasonalMultiplier = 0.9;
+    }
+    
+    const finalWeatherFactor = baseWeatherFactor * seasonalMultiplier;
+    
+    console.log('Weather factor calculation:', {
+      latitude,
+      hemisphere: locationInfo.hemisphere,
+      absLatitude,
+      adjustedDayOfYear,
+      monthApprox,
+      baseWeatherFactor,
+      seasonalMultiplier,
+      finalWeatherFactor: Math.round(finalWeatherFactor * 100) / 100
+    });
+    
+    return Math.max(0.2, Math.min(1.0, finalWeatherFactor));
   }
 
   /**
@@ -522,5 +650,84 @@ export class SolarCalculator {
     const tempEfficiency = 1.0 - (temperatureCycle * 0.05); // Max 5% loss in summer
     
     return Math.max(0.95, Math.min(1.02, tempEfficiency));
+  }
+
+  /**
+   * Check if a location is within Europe (where German regulations might apply)
+   * Uses approximate geographic boundaries
+   */
+  isLocationInEurope(latitude, longitude) {
+    // Approximate European boundaries
+    // Latitude: 35°N (Southern Europe) to 71°N (Northern Europe)
+    // Longitude: 10°W (Western Europe) to 40°E (Eastern Europe)
+    const isInEuropeLatitude = latitude >= 35 && latitude <= 71;
+    const isInEuropeLongitude = longitude >= -10 && longitude <= 40;
+    
+    const isInEurope = isInEuropeLatitude && isInEuropeLongitude;
+    
+    console.log('Location check:', {
+      latitude,
+      longitude,
+      isInEuropeLatitude,
+      isInEuropeLongitude,
+      isInEurope
+    });
+    
+    return isInEurope;
+  }
+
+  /**
+   * Determine hemisphere and optimal panel orientation based on latitude
+   */
+  getLocationInfo(latitude, longitude) {
+    const isNorthernHemisphere = latitude >= 0;
+    const isSouthernHemisphere = latitude < 0;
+    
+    // Optimal azimuth (south for NH, north for SH)
+    const optimalAzimuth = isNorthernHemisphere ? 180 : 0;
+    
+    // Optimal tilt (roughly equal to latitude, but with practical limits)
+    const optimalTilt = Math.min(Math.max(Math.abs(latitude), 10), 60);
+    
+    // Hemisphere-specific weather patterns
+    let seasonalShift = 0;
+    if (isSouthernHemisphere) {
+      seasonalShift = 182.5; // 6 months offset for Southern Hemisphere
+    }
+    
+    return {
+      isNorthernHemisphere,
+      isSouthernHemisphere,
+      optimalAzimuth,
+      optimalTilt,
+      seasonalShift,
+      absLatitude: Math.abs(latitude),
+      hemisphere: isNorthernHemisphere ? 'Northern' : 'Southern'
+    };
+  }
+
+  /**
+   * Get region-specific solar regulations based on location
+   */
+  getRegionalSolarRegulations(latitude, longitude) {
+    const isInEurope = this.isLocationInEurope(latitude, longitude);
+    
+    if (isInEurope) {
+      return {
+        maxInverterOutputW: 800,    // German regulation: 800W AC to grid
+        maxPanelCapacityW: 2000,    // German regulation: 2000W DC panels
+        regionName: 'Europe (German Regulations)',
+        applyGermanRules: true,
+        description: 'German balcony solar regulations (800W inverter, 2000W panels)'
+      };
+    } else {
+      return {
+        maxInverterOutputW: null,   // No inverter limit
+        maxPanelCapacityW: null,    // No panel limit
+        regionName: 'Outside Europe',
+        applyGermanRules: false,
+        description: 'No specific regulatory limits applied'
+      };
+    }
   }
 }

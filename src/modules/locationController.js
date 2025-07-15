@@ -163,10 +163,95 @@ export class LocationController {
   }
 
   async searchAddress() {
-    // PlaceAutocompleteElement doesn't have a value property like regular inputs
-    // For now, we'll skip manual search as the autocomplete handles place selection automatically
-    console.log('Manual address search not available with PlaceAutocompleteElement');
-    return;
+    const searchInput = document.getElementById('address-search');
+    const searchButton = document.getElementById('search-btn');
+    let searchTerm = '';
+    
+    // Get search term from the autocomplete element
+    if (this.autocompleteElement && this.autocompleteElement.value) {
+      searchTerm = this.autocompleteElement.value;
+    } else if (searchInput && searchInput.value) {
+      searchTerm = searchInput.value;
+    }
+    
+    if (!searchTerm.trim()) {
+      this.app.uiController.showError('Please enter an address to search');
+      return;
+    }
+    
+    console.log('Manually searching for address:', searchTerm);
+    
+    // Add loading state
+    if (searchButton) {
+      searchButton.classList.add('loading');
+      searchButton.textContent = '';
+    }
+    
+    try {
+      // Use Google Geocoding API
+      const geocoder = new google.maps.Geocoder();
+      
+      const request = {
+        address: searchTerm,
+        region: 'DE', // Bias results towards Germany
+        componentRestrictions: {
+          country: 'DE'
+        }
+      };
+      
+      const result = await new Promise((resolve, reject) => {
+        geocoder.geocode(request, (results, status) => {
+          if (status === 'OK' && results && results.length > 0) {
+            resolve(results[0]);
+          } else {
+            reject(new Error(`Geocoding failed: ${status}`));
+          }
+        });
+      });
+      
+      // Handle the geocoding result
+      if (result) {
+        const location = {
+          lat: result.geometry.location.lat(),
+          lng: result.geometry.location.lng()
+        };
+        
+        const address = result.formatted_address || searchTerm;
+        
+        // Set the location and update the map
+        this.app.setSelectedLocation(location, address);
+        
+        // Center map on the found location
+        this.map.setCenter(location);
+        this.map.setZoom(18);
+        
+        // Add a marker for the found location
+        this.clearMarkers();
+        const marker = new google.maps.Marker({
+          position: location,
+          map: this.map,
+          title: address,
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            scaledSize: new google.maps.Size(32, 32)
+          }
+        });
+        
+        this.markers.push(marker);
+        
+        console.log('Manual search successful:', { location, address });
+        this.app.uiController.showSuccess(`Found: ${address}`);
+      }
+    } catch (error) {
+      console.error('Manual search failed:', error);
+      this.app.uiController.showError(`Search failed: ${error.message || 'Please try a more specific address'}`);
+    } finally {
+      // Remove loading state
+      if (searchButton) {
+        searchButton.classList.remove('loading');
+        searchButton.textContent = '🔍 Search';
+      }
+    }
   }
 
   clearMarkers() {

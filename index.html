@@ -32,8 +32,9 @@
                 class="search-input"
                 autocomplete="off"
               />
-              <button id="search-btn" class="search-btn" title="Manual search">🔍</button>
             </div>
+            
+            <button id="search-btn" class="search-btn" title="Manual search">🔍 Search</button>
             
             <p class="search-hint">💡 Start typing to see address suggestions, or click on the map to select a location</p>
             
@@ -53,14 +54,14 @@
             <div class="panel-line-info">
               <p>📏 <strong>Click first point</strong> to start drawing the mounting line</p>
               <p id="line-drawing-status" class="status-message"></p>
-              <div id="panel-line-locations-status">
-                <p>Panel line drawn: <span id="panel-line-status">No</span></p>
+              <div id="panel-line-locations-status" class="panel-status-container">
+                <p>🔲 Panel line drawn: <span id="panel-line-status" data-status="no">No</span></p>
                 <div id="panel-line-details" class="hidden">
-                  <p>Line length: <span id="line-length">-</span></p>
-                  <p>Panel count: <span id="panel-count">-</span></p>
-                  <p>Total wattage: <span id="total-wattage">-</span></p>
-                  <p>Panel orientation: <span id="panel-orientation">-</span></p>
-                  <p>Total area: <span id="panel-area">-</span></p>
+                  <p>📐 Line length: <span id="line-length">-</span></p>
+                  <p>🔢 Panel count: <span id="panel-count">-</span></p>
+                  <p>⚡ Total wattage: <span id="total-wattage">-</span></p>
+                  <p>🧭 Panel orientation: <span id="panel-orientation">-</span></p>
+                  <p>📦 Total area: <span id="panel-area">-</span></p>
                   <p id="constraint-info" class="constraint-info"></p>
                 </div>
               </div>
@@ -118,6 +119,23 @@
                   <span id="panel-tilt-value">90° (Vertical)</span>
                 </div>
                 <p class="control-hint">Angle of panel mounting: 90° = Vertical (balcony railing), 0° = Horizontal</p>
+              </div>
+              
+              <div class="control-group">
+                <label class="panel-count-toggle">
+                  <input type="checkbox" id="enable-panel-count" class="checkbox-input">
+                  <span class="checkbox-custom"></span>
+                  Limit Panel Count
+                </label>
+                <p class="control-hint">Override automatic panel fitting with a specific count</p>
+                
+                <div id="panel-count-control" class="panel-count-selector disabled">
+                  <label for="panel-count-slider">Number of Panels:</label>
+                  <div class="slider-container">
+                    <input type="range" id="panel-count-slider" min="1" max="8" step="1" value="4" class="slider" disabled>
+                    <span id="panel-count-value">4 panels</span>
+                  </div>
+                </div>
               </div>
               
               <div class="control-group">
