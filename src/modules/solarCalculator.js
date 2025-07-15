@@ -73,7 +73,7 @@ export class SolarCalculator {
    * Calculate solar power output with German balcony solar regulations
    * - Max 800W AC output to grid (inverter limit)
    * - Max 2000W DC panels allowed
-   * - Simplified calculation without inverter losses
+   * - Uses real Solar API data when available
    */
   calculateGermanSolarOutput(solarData, panelConfig, efficiency, panelAzimuth = 180, panelTilt = 30) {
     const MAX_INVERTER_OUTPUT_W = 800; // German regulation: max 800W AC to grid
@@ -82,10 +82,21 @@ export class SolarCalculator {
     // Check if system exceeds German limits
     const exceedsPanelLimit = panelConfig.totalWattage > MAX_PANEL_CAPACITY_W;
     
-    // More realistic annual calculation based on German solar irradiance
-    // Germany: ~1000-1200 kWh/m²/year, accounting for seasonal variations
-    const annualIrradianceKwhPerSqm = 1100; // Typical for Germany
-    const peakSunHours = annualIrradianceKwhPerSqm / 365; // ~3.0 hours/day average
+    // Use real Solar API data when available, fallback to German averages
+    let annualSunshineHours, peakSunHours;
+    
+    if (solarData && solarData.solarPotential && solarData.solarPotential.maxSunshineHoursPerYear) {
+      // Use real data from Solar API
+      annualSunshineHours = solarData.solarPotential.maxSunshineHoursPerYear;
+      peakSunHours = annualSunshineHours / 365; // Convert to daily average
+      console.log('Using real Solar API data:', { annualSunshineHours, peakSunHours });
+    } else {
+      // Fallback to German averages
+      const annualIrradianceKwhPerSqm = 1100; // Typical for Germany
+      peakSunHours = annualIrradianceKwhPerSqm / 365; // ~3.0 hours/day average
+      annualSunshineHours = peakSunHours * 365;
+      console.log('Using fallback German averages:', { annualIrradianceKwhPerSqm, peakSunHours });
+    }
     
     // Calculate realistic daily energy production with clipping
     const dailyProduction = this.calculateDailyEnergyWithClipping(
@@ -122,7 +133,8 @@ export class SolarCalculator {
       efficiency,
       MAX_INVERTER_OUTPUT_W,
       panelAzimuth,
-      panelTilt
+      panelTilt,
+      solarData // Pass Solar API data for realistic seasonal calculations
     );
     
     return {
@@ -217,11 +229,10 @@ export class SolarCalculator {
         // Calculate base irradiance from solar geometry
         let irradiance = this.calculateAtmosphericAttenuation(solarPos.elevation);
         
-        // Apply seasonal and weather corrections for Germany
-        const seasonalFactor = this.getSeasonalFactor(dayOfYear);
-        const weatherFactor = 0.65; // Average German cloud cover factor
+        // Apply German weather corrections
+        const weatherFactor = this.getGermanWeatherFactor(dayOfYear);
         
-        irradiance *= seasonalFactor * weatherFactor;
+        irradiance *= weatherFactor;
         
         // Apply consistent variation pattern (based on hour for consistency)
         const variationFactor = 0.9 + 0.2 * Math.sin((hour * Math.PI) / 12); // Sine wave variation
@@ -234,31 +245,6 @@ export class SolarCalculator {
     }
     
     return hourlyIrradiance;
-  }
-
-  /**
-   * Get seasonal adjustment factor for German solar conditions
-   * Based on actual German solar irradiance patterns throughout the year
-   */
-  getSeasonalFactor(dayOfYear) {
-    // More realistic seasonal variation for Germany (latitude ~51°N)
-    // Winter solstice (day 355/21): lowest production
-    // Summer solstice (day 172): highest production
-    
-    // Calculate days from winter solstice (normalize to 0-365 range)
-    let daysFromWinterSolstice = dayOfYear - 21; // Jan 21 is roughly winter solstice
-    if (daysFromWinterSolstice < 0) {
-      daysFromWinterSolstice += 365;
-    }
-    
-    // Use cosine function with 365-day period
-    const seasonalCycle = Math.cos((daysFromWinterSolstice / 365) * 2 * Math.PI);
-    
-    // Scale between 0.2 (winter) and 1.0 (summer) for Germany
-    // German solar irradiance varies from ~0.5 kWh/m²/day in winter to ~5.0 kWh/m²/day in summer
-    const seasonalFactor = 0.2 + 0.8 * Math.max(0, seasonalCycle);
-    
-    return Math.max(0.15, Math.min(1.0, seasonalFactor));
   }
 
   /**
@@ -371,21 +357,32 @@ export class SolarCalculator {
   }
 
   /**
-   * Calculate seasonal energy production variations
-   * Shows how solar output changes throughout the year
+   * Calculate seasonal energy production variations using real Solar API data
+   * Shows how solar output changes throughout the year based on actual solar geometry
    */
-  calculateSeasonalVariations(dcCapacityW, efficiency, maxInverterOutputW, panelAzimuth, panelTilt) {
+  calculateSeasonalVariations(dcCapacityW, efficiency, maxInverterOutputW, panelAzimuth, panelTilt, solarData = null) {
     const seasons = [
-      { name: 'Winter Solstice', day: 355, month: 'December', basePeakSunHours: 1.0 },
-      { name: 'Spring Equinox', day: 80, month: 'March', basePeakSunHours: 2.5 },
-      { name: 'Summer Solstice', day: 172, month: 'June', basePeakSunHours: 4.5 },
-      { name: 'Fall Equinox', day: 266, month: 'September', basePeakSunHours: 2.8 }
+      { name: 'Winter Solstice', day: 355, month: 'December' },
+      { name: 'Spring Equinox', day: 80, month: 'March' },
+      { name: 'Summer Solstice', day: 172, month: 'June' },
+      { name: 'Fall Equinox', day: 266, month: 'September' }
     ];
     
+    // Calculate base annual peak sun hours from Solar API or fallback
+    let annualPeakSunHours;
+    if (solarData && solarData.solarPotential && solarData.solarPotential.maxSunshineHoursPerYear) {
+      annualPeakSunHours = solarData.solarPotential.maxSunshineHoursPerYear / 365;
+      console.log('Using real Solar API data for seasonal calculations:', { annualPeakSunHours });
+    } else {
+      // Fallback to German climate averages
+      annualPeakSunHours = 1100 / 365; // ~3.0 hours/day average for Germany
+      console.log('Using German climate fallback for seasonal calculations:', { annualPeakSunHours });
+    }
+    
     const seasonalResults = seasons.map(season => {
-      // Calculate realistic peak sun hours for this season based on German solar data
-      const seasonalFactor = this.getSeasonalFactor(season.day);
-      const seasonalPeakSunHours = season.basePeakSunHours * seasonalFactor;
+      // Calculate realistic seasonal variation based on solar geometry
+      const seasonalIrradiance = this.calculateSeasonalSolarIrradiance(season.day, 51.0); // German latitude
+      const seasonalPeakSunHours = annualPeakSunHours * seasonalIrradiance;
       
       const dailyProduction = this.calculateDailyEnergyWithClipping(
         dcCapacityW,
@@ -405,12 +402,85 @@ export class SolarCalculator {
         clippingLossPercent: dailyProduction.energyLostToClipping > 0 
           ? (dailyProduction.energyLostToClipping / (dailyProduction.totalEnergy + dailyProduction.energyLostToClipping)) * 100 
           : 0,
-        peakSunHours: seasonalPeakSunHours,
-        hoursClipped: dailyProduction.hoursClippedPerDay
+        peakSunHours: Math.round(seasonalPeakSunHours * 100) / 100,
+        hoursClipped: dailyProduction.hoursClippedPerDay,
+        seasonalFactor: Math.round(seasonalIrradiance * 100) / 100
       };
     });
     
     return seasonalResults;
+  }
+
+  /**
+   * Calculate seasonal solar irradiance factor based on solar geometry
+   * More accurate than fixed multipliers - uses actual sun position calculations
+   */
+  calculateSeasonalSolarIrradiance(dayOfYear, latitude = 51.0) {
+    // Calculate daily total irradiance based on solar geometry
+    let totalDailyIrradiance = 0;
+    const hourlyReadings = 24;
+    
+    for (let hour = 0; hour < hourlyReadings; hour++) {
+      const solarPos = this.calculateSolarPosition(hour, dayOfYear, latitude);
+      
+      if (solarPos.elevation > 0) {
+        // Calculate atmospheric attenuation
+        const irradiance = this.calculateAtmosphericAttenuation(solarPos.elevation);
+        totalDailyIrradiance += irradiance;
+      }
+    }
+    
+    // Normalize to summer solstice (day 172) as reference (factor = 1.0)
+    const summerSolsticeDayOfYear = 172;
+    let summerTotalIrradiance = 0;
+    
+    for (let hour = 0; hour < hourlyReadings; hour++) {
+      const solarPos = this.calculateSolarPosition(hour, summerSolsticeDayOfYear, latitude);
+      
+      if (solarPos.elevation > 0) {
+        const irradiance = this.calculateAtmosphericAttenuation(solarPos.elevation);
+        summerTotalIrradiance += irradiance;
+      }
+    }
+    
+    // Apply German weather factors (cloud cover, atmospheric conditions)
+    const weatherFactor = this.getGermanWeatherFactor(dayOfYear);
+    const geometricFactor = totalDailyIrradiance / Math.max(summerTotalIrradiance, 0.1);
+    
+    return Math.max(0.1, Math.min(1.5, geometricFactor * weatherFactor));
+  }
+
+  /**
+   * Get German-specific weather factors throughout the year
+   * Accounts for cloud cover, precipitation, and atmospheric clarity
+   */
+  getGermanWeatherFactor(dayOfYear) {
+    // German weather patterns: cloudy winters, clearer summers
+    // Data based on German meteorological service (DWD) climate data
+    
+    // Winter (Dec-Feb): High cloud cover, low sun angle
+    // Spring (Mar-May): Variable weather, increasing clarity
+    // Summer (Jun-Aug): Best conditions, least cloud cover
+    // Fall (Sep-Nov): Increasing clouds, variable weather
+    
+    const monthApprox = Math.floor((dayOfYear - 1) / 30.4) + 1; // Approximate month
+    
+    let weatherFactor;
+    if (monthApprox <= 2 || monthApprox === 12) {
+      // Winter: 40-50% clear sky probability
+      weatherFactor = 0.45;
+    } else if (monthApprox >= 3 && monthApprox <= 5) {
+      // Spring: 55-65% clear sky probability
+      weatherFactor = 0.60;
+    } else if (monthApprox >= 6 && monthApprox <= 8) {
+      // Summer: 65-75% clear sky probability  
+      weatherFactor = 0.70;
+    } else {
+      // Fall: 50-60% clear sky probability
+      weatherFactor = 0.55;
+    }
+    
+    return weatherFactor;
   }
 
   /**
@@ -420,14 +490,14 @@ export class SolarCalculator {
     const baseEfficiency = this.calculatePanelEfficiency(panelAzimuth, panelTilt);
     
     // Add seasonal efficiency variations (snow, temperature effects, etc.)
-    const seasonalEfficiency = this.getSeasonalFactor(dayOfYear);
+    const seasonalIrradiance = this.calculateSeasonalSolarIrradiance(dayOfYear);
     const temperatureEfficiency = this.getTemperatureEfficiency(dayOfYear);
     
-    const totalEfficiency = baseEfficiency * seasonalEfficiency * temperatureEfficiency;
+    const totalEfficiency = baseEfficiency * seasonalIrradiance * temperatureEfficiency;
     
     console.log('Detailed panel efficiency:', {
       baseEfficiency: Math.round(baseEfficiency * 100),
-      seasonalFactor: Math.round(seasonalEfficiency * 100),
+      seasonalFactor: Math.round(seasonalIrradiance * 100),
       temperatureFactor: Math.round(temperatureEfficiency * 100),
       totalEfficiency: Math.round(totalEfficiency * 100)
     });
