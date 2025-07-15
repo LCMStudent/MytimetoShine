@@ -112,4 +112,4 @@ Web-Anwendung zur Berechnung des Solarpotentials von Balkonkraftwerken.
 - Google Maps API key
 - Modern browser
 
-**Built with Vite and vanilla JavaScript**
+**Built with Vite and vanilla JavaScript, supported by Claude Code**
